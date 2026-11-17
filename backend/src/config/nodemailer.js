@@ -26,3 +26,19 @@ export const sendMailToRegister = async (email, nombre, token) => {
         `
     })
 }
+
+export const sendMailToRecoveryPassword = async (email, token) => {
+    const enlace = `${process.env.FRONTEND_URL}/reset/${token}`
+
+    await crearTransporter().sendMail({
+        from: process.env.EMAIL_FROM,
+        to: email,
+        subject: "Recupera tu contraseña en Quito Trip",
+        html: `
+            <h2>Recuperación de contraseña</h2>
+            <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el siguiente enlace:</p>
+            <a href="${enlace}">Restablecer mi contraseña</a>
+            <p>Si no solicitaste este cambio, ignora este mensaje y tu contraseña seguirá igual.</p>
+        `
+    })
+}

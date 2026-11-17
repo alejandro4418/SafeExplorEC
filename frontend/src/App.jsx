@@ -19,7 +19,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path='login' element={<Login />} />
         <Route path='register' element={<Register />} />
-        <Route path='forgot/:id' element={<Forgot />} />
+        <Route path='forgot' element={<Forgot />} />
         <Route path='confirm/:token' element={<Confirm />} />
         <Route path='reset/:token' element={<Reset />} />
         <Route path='*' element={<NotFound />} />

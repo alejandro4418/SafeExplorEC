@@ -1,5 +1,8 @@
 import Usuario from "../models/Usuario.js"
-import { sendMailToRegister } from "../config/nodemailer.js"
+import { sendMailToRegister, sendMailToRecoveryPassword } from "../config/nodemailer.js"
+
+import { crearTokenJWT } from "../helpers/crearJWT.js"
+
 
 // ---------- Validaciones ----------
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -80,7 +83,154 @@ const confirmarMail = async (req, res) => {
     }
 }
 
+
+// ---------- Login ----------
+//POST /api/login
+
+const login = async (req, res) => {
+    try {
+        const {email, password} = req.body
+
+        if (!email || !password || String(email).trim() === "" || String(password).trim() === "") {
+            return res.status(400).json({ msg: "Debes llenar todos los campos" })
+        }
+
+        const usuarioBDD = await Usuario.findOne({email: email.trim().toLowerCase()})
+
+        //Mensaje por si el correo no existe o la password falla.
+        if(!usuarioBDD) {
+            return res.status(404).json({ msg: "El correo o la clave son incorrectos"})
+        }
+
+        if (!usuarioBDD.status) {
+            return res.status(403).json({ msg: "Tu cuenta esta deshabilitada"})
+        }
+
+        if (!usuarioBDD.confirmEmail) {
+            return res.status(403).json({msg: "Debes confirmar tu cuenta desde el correo antes de tu inicio de sesion"})
+        }
+
+        const passwordCorrecto = await usuarioBDD.matchPassword(password)
+        if(!passwordCorrecto){
+            return res.status(404).json({ msg: "El correo o la contraseña son incorrectos"})
+        }
+
+        const token = crearTokenJWT(usuarioBDD._id, usuarioBDD.rol)
+
+        res.status(200).json({
+            msg: `Bienvenido(a) ${usuarioBDD.nombre}`,
+            token,
+            usuario: {
+                _id: usuarioBDD._id,
+                nombre: usuarioBDD.nombre,
+                apellido: usuarioBDD.apellido,
+                email: usuarioBDD.email,
+                celular: usuarioBDD.celular,
+                pais: usuarioBDD.pais,
+                rol: usuarioBDD.rol
+            }
+        })
+
+
+    } catch(error) {
+        console.error(error)
+        res.status(500).json({msg: "Error ene l servidor, no se pudo iniciar sesion"})
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+
+
+// ---------- Recuperación de contraseña ----------
+// POST /api/recuperarpassword
+const recuperarPassword = async (req, res) => {
+    try {
+        const { email } = req.body
+
+        if (!email || String(email).trim() === "") {
+            return res.status(400).json({ msg: "Debes ingresar tu correo electrónico" })
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            return res.status(400).json({ msg: "El correo electrónico no tiene un formato válido" })
+        }
+
+        const usuarioBDD = await Usuario.findOne({ email: email.trim().toLowerCase() })
+        if (!usuarioBDD) {
+            return res.status(404).json({ msg: "No existe una cuenta con ese correo electrónico" })
+        }
+
+        // Si no confirmó la cuenta, su "token" aún es el de confirmación; no hay que pisarlo
+        if (!usuarioBDD.confirmEmail) {
+            return res.status(403).json({ msg: "Primero debes confirmar tu cuenta desde el correo de registro" })
+        }
+
+        const token = usuarioBDD.createToken()
+        await sendMailToRecoveryPassword(usuarioBDD.email, token)
+        await usuarioBDD.save()
+
+        res.status(200).json({ msg: "Revisa tu correo electrónico para restablecer tu contraseña" })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ msg: "Error en el servidor, no se pudo enviar el correo de recuperación" })
+    }
+}
+
+// GET /api/recuperarpassword/:token
+const comprobarTokenPassword = async (req, res) => {
+    try {
+        const { token } = req.params
+
+        const usuarioBDD = await Usuario.findOne({ token })
+        if (!usuarioBDD) {
+            return res.status(404).json({ msg: "El enlace no es válido o ya fue utilizado" })
+        }
+
+        res.status(200).json({ msg: "Token confirmado, ya puedes crear tu nueva contraseña" })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ msg: "Error en el servidor, no se pudo comprobar el token" })
+    }
+}
+
+// POST /api/nuevopassword/:token
+const crearNuevoPassword = async (req, res) => {
+    try {
+        const { token } = req.params
+        const { password, confirmpassword } = req.body
+
+        if (!password || !confirmpassword || String(password).trim() === "" || String(confirmpassword).trim() === "") {
+            return res.status(400).json({ msg: "Debes llenar todos los campos" })
+        }
+        if (!PASSWORD_REGEX.test(password)) {
+            return res.status(400).json({ msg: "La contraseña debe tener mínimo 8 caracteres, con letras y números" })
+        }
+        if (password !== confirmpassword) {
+            return res.status(400).json({ msg: "Las contraseñas no coinciden" })
+        }
+
+        const usuarioBDD = await Usuario.findOne({ token })
+        if (!usuarioBDD) {
+            return res.status(404).json({ msg: "El enlace no es válido o ya fue utilizado" })
+        }
+
+        usuarioBDD.password = await usuarioBDD.encryptPassword(password)
+        usuarioBDD.token = null
+        await usuarioBDD.save()
+
+        res.status(200).json({ msg: "Contraseña actualizada. Ya puedes iniciar sesión con tu nueva contraseña" })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ msg: "Error en el servidor, no se pudo guardar la nueva contraseña" })
+    }
+}
+
+
+
 export {
     registro,
-    confirmarMail
+    confirmarMail,
+    login,
+    recuperarPassword,
+    comprobarTokenPassword,
+    crearNuevoPassword
 }
