@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { ToastContainer } from 'react-toastify'
 import { Home } from './pages/Home'
 import Login from './pages/Login'
@@ -9,25 +9,32 @@ import { NotFound } from './pages/NotFound'
 import Reset from './pages/Reset'
 import Dashboard from './layout/Dashboard'
 import Profile from './pages/Profile'
+import PublicRoute from './routes/PublicRoute'
+import PrivateRoute from './routes/PrivateRoute'
 
 function App() {
   return (
     <BrowserRouter>
       <ToastContainer />
       <Routes>
-        {/* Rutas públicas */}
         <Route index element={<Home />} />
-        <Route path='login' element={<Login />} />
-        <Route path='register' element={<Register />} />
-        <Route path='forgot' element={<Forgot />} />
         <Route path='confirm/:token' element={<Confirm />} />
         <Route path='reset/:token' element={<Reset />} />
-        <Route path='*' element={<NotFound />} />
 
-        {/* Rutas privadas (el Integrante 3 las protege) */}
-        <Route path='/dashboard' element={<Dashboard />}>
-          <Route path='profile' element={<Profile />} />
+        <Route element={<PublicRoute />}>
+          <Route path='login' element={<Login />} />
+          <Route path='register' element={<Register />} />
+          <Route path='forgot' element={<Forgot />} />
         </Route>
+
+        <Route element={<PrivateRoute />}>
+          <Route path='dashboard' element={<Dashboard />}>
+            <Route index element={<Navigate to='profile' replace />} />
+            <Route path='profile' element={<Profile />} />
+          </Route>
+        </Route>
+
+        <Route path='*' element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

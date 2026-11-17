@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { registro, confirmarMail, login, recuperarPassword, comprobarTokenPassword, crearNuevoPassword } from '../controllers/usuario_controller.js'
+import { registro, confirmarMail, login, recuperarPassword, comprobarTokenPassword, crearNuevoPassword, perfil, actualizarPerfil, actualizarPassword } from '../controllers/usuario_controller.js'
+import verificarTokenJWT from '../middlewares/autenticacion.js'
 
 const router = Router()
 
@@ -15,6 +16,9 @@ router.post('/recuperarpassword', recuperarPassword)
 router.get('/recuperarpassword/:token', comprobarTokenPassword)
 router.post('/nuevopassword/:token', crearNuevoPassword)
 
-// Integrante 3: GET /perfil, PUT /perfil/:id, PUT /actualizarpassword/:id (con middleware JWT)
+// Integrante 3
+router.get('/perfil', verificarTokenJWT, perfil)
+router.put('/perfil/:id', verificarTokenJWT, actualizarPerfil)
+router.put('/actualizarpassword/:id', verificarTokenJWT, actualizarPassword)
 
 export default router
